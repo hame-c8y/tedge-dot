@@ -180,6 +180,10 @@ pages:
     slug: reference/design/rfc-0006
     section: Design and RFCs
     label: "RFC 0006: OPC UA namespaces"
+  - source: doc/rfc/0007-gateway-values.md
+    slug: reference/design/rfc-0007
+    section: Design and RFCs
+    label: "RFC 0007: Gateway values"
   - source: doc/roadmap.md
     slug: reference/design/roadmap
     section: Design and RFCs

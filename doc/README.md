@@ -121,6 +121,7 @@ Read them roughly in this order:
 | 16b | [mapping-values.md](mapping-values.md) | User guide to value mapping (`map`): state codes to labels with ranges and a catch-all, numeric text to measurements, enumerated device parameters written as labels, and how it interacts with `transform`, `report` and the flows. |
 | 17 | [rfc/0005-device-types-and-parameter-sets.md](rfc/0005-device-types-and-parameter-sets.md) | *Device types*: naming what a device **is** (on the device, or once in its point library) and deriving parameter set names from it, so two device types on one protocol stop colliding on a tenant-wide Cumulocity identifier; the `group`/`set` split, why the type travels in samples and link status, and the entity type that follows. |
 | 18 | [rfc/0006-opcua-namespace-table.md](rfc/0006-opcua-namespace-table.md) | *OPC UA namespace tables*: numeric node ids plus the namespace array they were written against, translated to the server's indexes on every connect, so ids survive a renumbering and one library fits every instance; what OPC UA guarantees about the namespace array, and why not URI addressing. |
+| 19 | [rfc/0007-gateway-values.md](rfc/0007-gateway-values.md) | *Gateway values* (draft): one connector file shared by many gateways, each with a small gateway file holding its device addresses and on/off flags, merged by device name; merge order, validation, reloads, configuration types, and where Cumulocity keeps the values. |
 
 ---
 
