@@ -11,6 +11,7 @@ which starts with a choice:
 
 The separate **Register a file on the gateway** action is gone. A new connector file's service
 name now follows its file name, `tedge-dot-<file name>`, instead of the template's
-`tedge-dot-<protocol>`, which the packaged example files use. A registered file without a
+`tedge-dot-<protocol>`, which the packaged example files use, and the editor warns about a
+connector file that uses one of those names. A registered file without a
 repository entry can be created from the tab, and a registered file that is missing on the gateway
 is pointed out. See [Connector files from Cumulocity](../doc/c8y-connector-files.md#the-ot-connectors-tab).

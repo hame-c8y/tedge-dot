@@ -72,6 +72,20 @@ uploaded file, and that of an existing entry. It SHALL keep the rest of the file
 - **WHEN** a user sets the service name `line-4-pumps` and then changes the file name to `line-5`
 - **THEN** the service name stays `line-4-pumps`
 
+### Requirement: Warning for a packaged service name
+The editor SHALL warn when a connector file's service name is that of an example connector file
+the tedge-dot packages install in `/etc/tedge/plugins/ot`, unless the file has the example's file
+name. The warning SHALL name the example file, SHALL offer to set `tedge-dot-<file name>`, and SHALL
+not block saving.
+
+#### Scenario: Example's service name in another file
+- **WHEN** the connector file `line-4` has the service name `tedge-dot-opcua`
+- **THEN** the editor warns that the packaged `opcua.toml` uses that name, and offers `tedge-dot-line-4`
+
+#### Scenario: A file that replaces the example
+- **WHEN** the connector file `opcua` has the service name `tedge-dot-opcua`
+- **THEN** the editor shows no warning
+
 ### Requirement: Registered file missing on the gateway
 When the newest `c8y_UploadConfigFile` or `c8y_DownloadConfigFile` operation of the selected type
 is a failed snapshot request whose failure reason contains "Config file not found", the tab SHALL say

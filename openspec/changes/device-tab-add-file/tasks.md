@@ -22,6 +22,7 @@
 
 - [x] 4.1 `followFileName()` and the automatic-name rule in `service-name.ts`; tests
 - [x] 4.2 The editor keeps a new connector file's service name in step with its file name
+- [x] 4.3 Packaged example files' service names from the packaging at sync time; the editor warns about them and offers `tedge-dot-<file name>`
 
 ## 5. Docs and checks
 

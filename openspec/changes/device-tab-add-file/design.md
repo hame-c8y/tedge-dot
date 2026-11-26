@@ -52,11 +52,22 @@ the same: when the file name changes, a template is applied or the form switches
 editor rewrites `[connector] service_name` (keeping the file's layout) if the current name is
 automatic. Automatic means missing, a template's `tedge-dot-<protocol>`, or the name the editor set
 last, so a file name typed letter by letter keeps it in step. A name the user typed stays. Uploaded
-files keep their own service name; existing entries are not touched.
+files keep their own service name; existing entries are not touched. Other form edits don't run
+the rule, so a service name typed letter by letter isn't replaced halfway.
+
+### Warning for packaged service names
+
+`scripts/sync-site.mjs` reads the example connector files the packages install into
+`/etc/tedge/plugins/ot` from `.goreleaser.yaml` and `impl/c/packaging/nfpm.yaml`, with each one's
+`service_name`. The editor warns when a connector file uses one of those names, unless its file
+name is the example's: such a file replaces the example on the gateway. The warning offers
+`tedge-dot-<file name>` and doesn't block Save. It needs no requests, and it covers the case
+#142 reported.
 
 ## Risks
 
 - The failure text comes from thin-edge.io. The match is on "Config file not found",
   case-insensitive, as thin-edge.io 2.1 reports it (checked on a tenant).
-- A user can still give two files one service name by hand. Warning about that (#142's second
-  proposal) needs every connector entry's text, or snapshots from the gateway, and is left out.
+- Two repository entries can still share a service name that isn't a packaged one. Warning about
+  that needs every connector entry's text; warning about files on a gateway needs a snapshot of
+  each, and wouldn't see unregistered files such as the packaged examples. Both are left out.

@@ -32,8 +32,11 @@ more likely.
 - Creating needs the roles to add repository entries, as Add, Upload and Duplicate on the OT
   connectors page do.
 - **Service name of a new file.** A new connector file's service name follows its file name,
-  `tedge-dot-<file name>`, until the user sets another one. Warnings about clashing service names,
-  also proposed in #142, are not part of this change.
+  `tedge-dot-<file name>`, until the user sets another one.
+- **Packaged service names.** The editor warns, without blocking Save, when a connector file uses
+  the service name of an example file the packages install (such as `tedge-dot-opcua`), and offers
+  `tedge-dot-<file name>` instead. Warnings about clashes with other repository entries or with
+  files on a gateway, also proposed in #142, are not part of this change.
 
 ## Impact
 

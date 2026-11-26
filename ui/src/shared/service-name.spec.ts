@@ -1,5 +1,5 @@
 import { emitToml, newConfig } from '../generated/config-builder';
-import { followFileName, isAutomaticServiceName, serviceNameOf } from './service-name';
+import { followFileName, isAutomaticServiceName, packagedClash, serviceNameOf, setServiceName } from './service-name';
 
 const template = emitToml(newConfig('opcua'));
 
@@ -47,5 +47,33 @@ describe('service name of a new connector file', () => {
     expect(isAutomaticServiceName('tedge-dot-line-3', 'tedge-dot-line-3')).toBe(true);
     expect(isAutomaticServiceName('tedge-dot-line-3')).toBe(false);
     expect(isAutomaticServiceName(42)).toBe(false);
+  });
+
+  it('sets a service name, keeping the rest of the file', () => {
+    const text = `[connector]\nprotocol = "modbus" # bus\nservice_name = "a"\n`;
+    expect(setServiceName(text, 'tedge-dot-line-3')).toBe(`[connector]\nprotocol = "modbus" # bus\nservice_name = "tedge-dot-line-3"\n`);
+    expect(setServiceName('[library]\nprotocol = "modbus"\n', 'x')).toBeUndefined();
+    expect(setServiceName('[connector\n', 'x')).toBeUndefined();
+  });
+});
+
+describe('packagedClash', () => {
+  const packaged = [{ file: 'opcua', serviceName: 'tedge-dot-opcua' }];
+
+  it('names the example file whose service name another file uses', () => {
+    expect(packagedClash('tedge-dot-opcua', 'opcua2', packaged)).toEqual({ file: 'opcua', serviceName: 'tedge-dot-opcua' });
+    expect(packagedClash('tedge-dot-opcua2', 'opcua2', packaged)).toBeUndefined();
+    expect(packagedClash(undefined, 'opcua2', packaged)).toBeUndefined();
+  });
+
+  it('does not count a file that replaces the example', () => {
+    expect(packagedClash('tedge-dot-opcua', 'opcua', packaged)).toBeUndefined();
+    expect(packagedClash('tedge-dot-opcua', 'opcua.toml', packaged)).toBeUndefined();
+  });
+
+  it('knows the examples the packages install', () => {
+    expect(packagedClash('tedge-dot-modbus', 'line-3')?.file).toBe('modbus');
+    // PROFIBUS ships with the C package only.
+    expect(packagedClash('tedge-dot-profibus', 'line-3')?.file).toBe('profibus');
   });
 });
