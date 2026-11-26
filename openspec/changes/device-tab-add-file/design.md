@@ -45,9 +45,18 @@ whose reason contains "Config file not found", it shows the hint. ("Plugin not f
 unknown plugin, is a different failure.) It checks again when the type changes, on Reload, and when the
 gateway's operations change (realtime). A successful send or snapshot afterwards clears it.
 
+### The service name follows the file name
+
+Duplicate already names a copy's service `tedge-dot-<file name>`. A new connector file now does
+the same: when the file name changes, a template is applied or the form switches the protocol, the
+editor rewrites `[connector] service_name` (keeping the file's layout) if the current name is
+automatic. Automatic means missing, a template's `tedge-dot-<protocol>`, or the name the editor set
+last, so a file name typed letter by letter keeps it in step. A name the user typed stays. Uploaded
+files keep their own service name; existing entries are not touched.
+
 ## Risks
 
 - The failure text comes from thin-edge.io. The match is on "Config file not found",
   case-insensitive, as thin-edge.io 2.1 reports it (checked on a tenant).
-- A new connector file from a template keeps the template's service name
-  (thin-edge/tedge-dot#142). That is not changed here.
+- A user can still give two files one service name by hand. Warning about that (#142's second
+  proposal) needs every connector entry's text, or snapshots from the gateway, and is left out.

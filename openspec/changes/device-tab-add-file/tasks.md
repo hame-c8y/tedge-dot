@@ -18,9 +18,14 @@
 - [x] 3.2 With a gateway: Save opens the send dialog, then returns to the tab; Cancel returns to the tab
 - [x] 3.3 **Edit in repository** from the tab passes the gateway
 
-## 4. Docs and checks
+## 4. Service name
 
-- [x] 4.1 Update the OT connectors tab section of `doc/c8y-connector-files.md`
-- [x] 4.2 Release highlight in `changes/device-tab-add-file.md`
-- [x] 4.3 Unit tests, type check and build pass
-- [x] 4.4 Check on a tenant: each choice, creating from a type, the hint, and the failure text
+- [x] 4.1 `followFileName()` and the automatic-name rule in `service-name.ts`; tests
+- [x] 4.2 The editor keeps a new connector file's service name in step with its file name
+
+## 5. Docs and checks
+
+- [x] 5.1 Update the OT connectors tab section of `doc/c8y-connector-files.md`
+- [x] 5.2 Release highlight in `changes/device-tab-add-file.md`
+- [x] 5.3 Unit tests, type check and build pass
+- [x] 5.4 Check on a tenant: each choice, creating from a type, the hint, and the failure text

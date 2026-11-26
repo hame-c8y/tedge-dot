@@ -57,6 +57,21 @@ valid. It SHALL not prefill the device type.
 - **WHEN** a user opens the editor from the tab of `gw-1` and chooses Cancel
 - **THEN** the user is back on the tab of `gw-1` and nothing is saved
 
+### Requirement: Service name of a new connector file
+In a new connector file, the editor SHALL set `[connector] service_name` to
+`tedge-dot-<file name>` whenever the file name changes, a template is applied, or the protocol is
+switched, as long as the current service name is missing, a template's `tedge-dot-<protocol>`, or
+the one the editor set last. It SHALL keep a service name the user set, the service name of an
+uploaded file, and that of an existing entry. It SHALL keep the rest of the file's text.
+
+#### Scenario: New file from a template
+- **WHEN** a user starts a new connector file from the `opcua` template and enters the file name `opcua2`
+- **THEN** the service name is `tedge-dot-opcua2`, not the packaged example's `tedge-dot-opcua`
+
+#### Scenario: The user's own service name
+- **WHEN** a user sets the service name `line-4-pumps` and then changes the file name to `line-5`
+- **THEN** the service name stays `line-4-pumps`
+
 ### Requirement: Registered file missing on the gateway
 When the newest `c8y_UploadConfigFile` or `c8y_DownloadConfigFile` operation of the selected type
 is a failed snapshot request whose failure reason contains "Config file not found", the tab SHALL say

@@ -49,7 +49,10 @@ The page lists the configuration repository entries whose type starts with `tedg
 files first, point libraries in a second list (see [Point libraries](#point-libraries)).
 
 - **Add connector file** opens the editor with a starting point for a protocol. Give the entry a
-  name, the file name it gets on gateways, and optionally a device type.
+  name, the file name it gets on gateways, and optionally a device type. The service name
+  follows the file name, `tedge-dot-<file name>`, until you set another one: the starting points
+  use `tedge-dot-<protocol>`, the name of the packaged example file, and two connectors with one
+  service name keep knocking each other off the broker.
 - **Upload connector file** adds an existing `.toml` file. The file is checked like the editor
   checks a file and becomes an entry named after it: `line-3.toml` is the type `tedge-dot-line-3`.
   A file with a `[library]` table becomes a point library of its protocol instead. A valid file is

@@ -8,7 +8,11 @@ user who wants a new connector file ends up with a registered name and no file b
 repository entry to send, and a snapshot that fails with "Config file not found"
 (thin-edge/tedge-dot#139). **Add connector file** on the tab lists only entries that are already in
 the repository (thin-edge/tedge-dot#140). The register dialog also can't register a point library
-that is already on the gateway (thin-edge/tedge-dot#141).
+that is already on the gateway (thin-edge/tedge-dot#141). A new connector file keeps its template's
+service name, `tedge-dot-<protocol>`, which the packaged example file of that protocol also uses;
+sent to a gateway with that example, the two connectors keep knocking each other off the broker
+(thin-edge/tedge-dot#142). The tab's new flow sends a new file right after saving, which makes that
+more likely.
 
 ## What Changes
 
@@ -27,6 +31,9 @@ that is already on the gateway (thin-edge/tedge-dot#141).
   because the file isn't on the gateway, the tab says so and offers to create or send it.
 - Creating needs the roles to add repository entries, as Add, Upload and Duplicate on the OT
   connectors page do.
+- **Service name of a new file.** A new connector file's service name follows its file name,
+  `tedge-dot-<file name>`, until the user sets another one. Warnings about clashing service names,
+  also proposed in #142, are not part of this change.
 
 ## Impact
 

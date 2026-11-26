@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgModel } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -29,6 +29,7 @@ import {
   typeOf,
 } from '../shared/naming';
 import { PendingFileService } from '../shared/pending-file.service';
+import { followFileName, serviceNameOf } from '../shared/service-name';
 import { emitLibraryToml, writeKeepingLayout } from '../shared/toml-write';
 import { TOML_LANGUAGE_ID, tomlLanguage } from '../shared/toml-language';
 import { type ValidationResult, describePointer, isValid, validateConnectorFile, validateLibraryFile } from '../shared/validation';
@@ -47,6 +48,9 @@ const MARKER_OWNER = 'tedge-dot';
  * Opened from a gateway's OT connectors tab (see editor-context.ts), it offers to send the saved
  * entry to that gateway and returns to the tab; for a type the gateway already lists, the new
  * file's name, and a library's protocol, are fixed.
+ *
+ * A new connector file's service name follows its file name until the user sets another one
+ * (see service-name.ts).
  */
 @Component({
   selector: 'tdot-connector-editor',
@@ -318,6 +322,10 @@ export class ConnectorEditorComponent {
   readonly context = signal<EditorContext>({});
   /** The gateway whose tab opened the editor, once loaded, for its name. */
   readonly gateway = signal<IManagedObject | undefined>(undefined);
+  /** Whether the service name follows the file name: new connector files, but not uploads. */
+  private serviceFollows = false;
+  /** The service name this editor set last, so a name typed letter by letter keeps following. */
+  private followedService?: string;
   /** For a new entry of a type the gateway already lists: the file it has to be. */
   readonly fixedFile = computed(() => (this.isNew() ? this.context().file : undefined));
   readonly gatewayNote = computed(() => {
@@ -400,6 +408,11 @@ export class ConnectorEditorComponent {
 
   constructor() {
     effect(() => this.applyMarkers(this.result()));
+    // The service name of a new connector file follows its file name.
+    effect(() => {
+      this.fileName();
+      untracked(() => this.followServiceName());
+    });
     // An uploaded file's name is checked at once: c8y-form-group marks only a touched field.
     effect(() => {
       if (this.fileTouched()) {
@@ -434,6 +447,9 @@ export class ConnectorEditorComponent {
       // An uploaded file that needs fixing, or a copy of an entry, comes here from the page.
       const uploaded = this.pending.take();
       this.copyOf.set(uploaded?.copyOf);
+      // An uploaded file keeps its own service name; a copy's was set from its file name.
+      this.serviceFollows = kind === 'connector' && (!uploaded || !!uploaded.copyOf);
+      this.followedService = uploaded?.copyOf ? serviceNameOf(uploaded.fileName) : undefined;
       if (uploaded) {
         this.kind.set(uploaded.kind);
         this.name.set(uploaded.name ?? uploaded.fileName);
@@ -453,6 +469,7 @@ export class ConnectorEditorComponent {
     }
     this.isNew.set(false);
     this.copyOf.set(undefined);
+    this.serviceFollows = false;
     try {
       const { data } = await this.inventory.detail(id);
       if (this.route.snapshot.paramMap.get('id') !== id) {
@@ -516,6 +533,19 @@ export class ConnectorEditorComponent {
 
   useTemplate(protocol: ProtocolId): void {
     this.content.set(this.isLibrary() ? emitLibraryToml(newLibrary(protocol)) : emitToml(newConfig(protocol)));
+    this.followServiceName();
+  }
+
+  /** A new connector file's service name, `tedge-dot-<file name>`, while it is not the user's own. */
+  private followServiceName(): void {
+    if (!this.serviceFollows || !this.isNew() || this.isLibrary()) {
+      return;
+    }
+    const followed = followFileName(this.content(), this.fileName(), this.followedService);
+    if (followed) {
+      this.content.set(followed.text);
+      this.followedService = followed.serviceName;
+    }
   }
 
   /** The file in the standard layout of its kind. */
@@ -574,6 +604,8 @@ export class ConnectorEditorComponent {
     if ((PROTOCOL_IDS as readonly string[]).includes(protocol)) {
       this.startFrom.set(protocol);
     }
+    // Switching the protocol can bring back a template's service name.
+    this.followServiceName();
   }
 
   private async confirmRewrite(comments: number): Promise<boolean> {
