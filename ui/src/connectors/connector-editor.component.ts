@@ -2,6 +2,8 @@ import { Component, computed, effect, inject, signal, viewChild } from '@angular
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgModel } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { BsModalService } from 'ngx-bootstrap/modal';
+import { combineLatest, take } from 'rxjs';
 import { IManagedObject, InventoryService } from '@c8y/client';
 import { AlertService, CoreModule, ModalService, Status } from '@c8y/ngx-components';
 import { gettext } from '@c8y/ngx-components/gettext';
@@ -11,6 +13,7 @@ import type * as Monaco from 'monaco-editor';
 
 import { PROTOCOL_IDS, emitToml, newConfig, type Config, type ProtocolId } from '../generated/config-builder';
 import { ConnectorOperationsService } from '../shared/connector-operations.service';
+import { type EditorContext, type Route, gatewayTabRoute, readEditorContext } from '../shared/editor-context';
 import { commentLines, newLibrary } from '../shared/form-model';
 import { type LibraryCatalog, checkReferences } from '../shared/libraries';
 import {
@@ -31,6 +34,7 @@ import { TOML_LANGUAGE_ID, tomlLanguage } from '../shared/toml-language';
 import { type ValidationResult, describePointer, isValid, validateConnectorFile, validateLibraryFile } from '../shared/validation';
 import { ConnectorFormComponent } from './connector-form.component';
 import { LibraryFormComponent } from './library-form.component';
+import { SendToGatewayComponent } from './send-to-gateway.component';
 import { ValidIfDirective } from './valid-if.directive';
 
 const MARKER_OWNER = 'tedge-dot';
@@ -39,6 +43,10 @@ const MARKER_OWNER = 'tedge-dot';
  * Adds or edits one connector file or point library in the configuration repository. A connector
  * file may only reference point libraries that exist; a library's protocol and name are fixed
  * once it is saved, because its type and its path on gateways name them.
+ *
+ * Opened from a gateway's OT connectors tab (see editor-context.ts), it offers to send the saved
+ * entry to that gateway and returns to the tab; for a type the gateway already lists, the new
+ * file's name, and a library's protocol, are fixed.
  */
 @Component({
   selector: 'tdot-connector-editor',
@@ -60,6 +68,9 @@ const MARKER_OWNER = 'tedge-dot';
       <div class="inner-scroll">
         <div class="card-block">
           @if (copyNote(); as note) {
+            <div class="alert alert-info" role="status">{{ note }}</div>
+          }
+          @if (gatewayNote(); as note) {
             <div class="alert alert-info" role="status">{{ note }}</div>
           }
           <div class="row">
@@ -100,7 +111,7 @@ const MARKER_OWNER = 'tedge-dot';
                     #fileModel="ngModel"
                     [(ngModel)]="fileName"
                     [tdotValidIf]="fileNameCheck()"
-                    [disabled]="!isNew()"
+                    [disabled]="!isNew() || !!fixedFile()"
                     (blur)="fileTouched.set(true)"
                   />
                   <span class="input-group-addon">.toml</span>
@@ -124,7 +135,7 @@ const MARKER_OWNER = 'tedge-dot';
                 <c8y-form-group>
                   <label for="tdot-start">{{ 'Start from' | translate }}</label>
                   <div class="c8y-select-wrapper">
-                    <select id="tdot-start" name="startFrom" class="form-control" [(ngModel)]="startFrom" (ngModelChange)="useTemplate($event)">
+                    <select id="tdot-start" name="startFrom" class="form-control" [(ngModel)]="startFrom" (ngModelChange)="useTemplate($event)" [disabled]="isLibrary() && !!fixedFile()">
                       @for (p of protocols; track p) {
                         <option [ngValue]="p">{{ p }}</option>
                       }
@@ -166,7 +177,7 @@ const MARKER_OWNER = 'tedge-dot';
                     {{ 'This file has no [library] table, so the form cannot show it. Edit it in the TOML view.' | translate }}
                   </div>
                 } @else {
-                  <tdot-library-form [config]="r.config!" [errors]="r.fields" [protocolFixed]="!isNew()" (configChange)="onFormChange($event)" />
+                  <tdot-library-form [config]="r.config!" [errors]="r.fields" [protocolFixed]="!isNew() || !!fixedFile()" (configChange)="onFormChange($event)" />
                 }
               } @else if (!r.config?.['connector']) {
                 <div class="alert alert-info" role="status">
@@ -259,6 +270,7 @@ export class ConnectorEditorComponent {
   private readonly modal = inject(ModalService);
   private readonly pending = inject(PendingFileService);
   private readonly ops = inject(ConnectorOperationsService);
+  private readonly bsModal = inject(BsModalService);
 
   readonly protocols = PROTOCOL_IDS;
   readonly editorOptions: Monaco.editor.IStandaloneEditorConstructionOptions = {
@@ -302,6 +314,24 @@ export class ConnectorEditorComponent {
     );
   });
   readonly view = signal<'form' | 'toml'>('form');
+  /** Where the editor was opened from: a gateway's tab, and for a new file maybe a fixed file. */
+  readonly context = signal<EditorContext>({});
+  /** The gateway whose tab opened the editor, once loaded, for its name. */
+  readonly gateway = signal<IManagedObject | undefined>(undefined);
+  /** For a new entry of a type the gateway already lists: the file it has to be. */
+  readonly fixedFile = computed(() => (this.isNew() ? this.context().file : undefined));
+  readonly gatewayNote = computed(() => {
+    const gatewayId = this.context().gatewayId;
+    if (!gatewayId) {
+      return undefined;
+    }
+    const name = this.gateway()?.['name'] ?? gatewayId;
+    const fixed = this.fixedFile();
+    return (
+      `After saving, you can send this file to ${name}.` +
+      (fixed ? ` ${name} lists ${fixed.path}, so ${fixed.kind === 'library' ? 'the protocol and library name stay as they are' : 'the file name stays as it is'}.` : '')
+    );
+  });
 
   readonly heading = computed(() =>
     this.isNew()
@@ -378,7 +408,9 @@ export class ConnectorEditorComponent {
     });
     void this.loadCatalog();
     // The router keeps this component when only the id changes, e.g. from an entry to "new".
-    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe(params => void this.load(params.get('id')));
+    combineLatest([this.route.paramMap, this.route.queryParamMap])
+      .pipe(takeUntilDestroyed())
+      .subscribe(([params]) => void this.load(params.get('id')));
   }
 
   private async load(id: string | null): Promise<void> {
@@ -388,9 +420,11 @@ export class ConnectorEditorComponent {
     this.nameTouched.set(false);
     this.fileTouched.set(false);
     if (!id || id === 'new' || id === 'new-library') {
+      const kind = id === 'new-library' ? 'library' : 'connector';
+      this.setContext(readEditorContext(kind, this.route.snapshot.queryParamMap));
       this.showForm();
       this.isNew.set(true);
-      this.kind.set(id === 'new-library' ? 'library' : 'connector');
+      this.kind.set(kind);
       this.savedProtocol.set(undefined);
       this.entry.set(undefined);
       this.name.set('');
@@ -412,6 +446,7 @@ export class ConnectorEditorComponent {
           this.showToml();
         }
       } else {
+        this.startFixedFile();
         this.useTemplate(this.startFrom());
       }
       return;
@@ -424,6 +459,7 @@ export class ConnectorEditorComponent {
         return;
       }
       const file = fileOfType(data['configurationType']);
+      this.setContext({ gatewayId: readEditorContext(file?.kind ?? 'connector', this.route.snapshot.queryParamMap).gatewayId });
       this.kind.set(file?.kind ?? 'connector');
       this.savedProtocol.set(file?.protocol);
       this.entry.set(data);
@@ -440,6 +476,41 @@ export class ConnectorEditorComponent {
       }
     } catch (e) {
       this.alert.addServerFailure(e);
+    }
+  }
+
+  /** Takes the editor's context, and loads the gateway it names for its name. */
+  private setContext(context: EditorContext): void {
+    this.context.set(context);
+    if (context.gatewayId !== this.gateway()?.id) {
+      this.gateway.set(undefined);
+    }
+    if (context.gatewayId && !this.gateway()) {
+      const gatewayId = context.gatewayId;
+      this.inventory.detail(gatewayId).then(
+        ({ data }) => {
+          if (this.context().gatewayId === gatewayId) {
+            this.gateway.set(data);
+          }
+        },
+        () => undefined
+      );
+    }
+  }
+
+  /** A new file of a type the gateway lists: its name, and a library's protocol and template. */
+  private startFixedFile(): void {
+    const file = this.context().file;
+    if (!file) {
+      return;
+    }
+    this.fileName.set(file.name);
+    this.name.set(file.name);
+    if (file.protocol) {
+      this.savedProtocol.set(file.protocol);
+      if ((PROTOCOL_IDS as readonly string[]).includes(file.protocol)) {
+        this.startFrom.set(file.protocol as ProtocolId);
+      }
     }
   }
 
@@ -558,7 +629,29 @@ export class ConnectorEditorComponent {
   }
 
   cancel(): void {
-    void this.router.navigate(['/ot-connectors']);
+    const gatewayId = this.context().gatewayId;
+    this.navigate(gatewayId ? gatewayTabRoute(gatewayId) : { commands: ['/ot-connectors'], queryParams: {} });
+  }
+
+  private navigate(route: Route): void {
+    void this.router.navigate(route.commands, { queryParams: route.queryParams });
+  }
+
+  /** The send dialog for the saved entry and the gateway; back to the gateway's tab once it closes. */
+  private async offerSend(entryId: string | number, gatewayId: string): Promise<void> {
+    const back = () => this.navigate(gatewayTabRoute(gatewayId));
+    try {
+      const [{ data: entry }, { data: device }] = await Promise.all([this.inventory.detail(entryId), this.inventory.detail(gatewayId)]);
+      const ref = this.bsModal.show(SendToGatewayComponent, {
+        initialState: { entry, device },
+        class: 'modal-lg',
+        ignoreBackdropClick: true,
+      });
+      ref.onHidden?.pipe(take(1)).subscribe(back);
+    } catch (e) {
+      this.alert.addServerFailure(e);
+      back();
+    }
   }
 
   async save(): Promise<void> {
@@ -571,7 +664,7 @@ export class ConnectorEditorComponent {
     const type = this.entry()?.['configurationType'] ?? (library ? libraryTypeOf(this.libraryProtocol(), name) : typeOf(name));
     try {
       const file = new File([this.content()], `${name}.toml`, { type: 'text/plain' });
-      await this.repository.create(
+      const saved = await this.repository.create(
         {
           version: this.name().trim(),
           description: this.description().trim(),
@@ -583,7 +676,13 @@ export class ConnectorEditorComponent {
         this.entry()
       );
       this.alert.success(library ? gettext('Point library saved.') : gettext('Connector file saved.'));
-      void this.router.navigate(['/ot-connectors']);
+      const gatewayId = this.context().gatewayId;
+      const entryId = saved?.id ?? this.entry()?.id;
+      if (gatewayId && entryId !== undefined) {
+        await this.offerSend(entryId, gatewayId);
+      } else {
+        this.navigate({ commands: ['/ot-connectors'], queryParams: {} });
+      }
     } catch (e) {
       this.alert.addServerFailure(e);
     } finally {
